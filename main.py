@@ -2,23 +2,27 @@ import time
 import os
 import pandas as pd
 import smtplib
-import email.mime.multipart
-import email.mime.text
-import email.mime.application
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 import pyodbc
 import datetime
+import subprocess
 
-time.sleep(3)
 
 # Passo 1: Chamar o executável de backup do dia
-os.startfile(r"C:\Program Files\Microsoft SQL Server\MSSQL15.SQLEXPRESS\MSSQL\Backup\backup.bat", 'open')
+caminho_bat = r"C:\Program Files\Microsoft SQL Server\MSSQL15.SQLEXPRESS\MSSQL\Backup\backup.bat"
 
-time.sleep(20)
+if os.path.exists(caminho_bat):
+    # Abre o executável
+    subprocess.run([caminho_bat])
+else:
+    print("O executável não foi encontrado.")
+
 
 # Passo 2: Procura no diretorio necessário o arquivo mais atual do backup
-
 caminho = r"C:\Program Files\Microsoft SQL Server\MSSQL15.SQLEXPRESS\MSSQL\Backup"
-
 
 if os.path.isdir(caminho):
 
@@ -39,7 +43,7 @@ if os.path.isdir(caminho):
     # Passo 3: Obtem os dados do banco de dados
 
     def retornar_conexao_sql():
-        server = "LAPTOP-A80SI4IH\SQLEXPRESS"
+        server = ".\SQLEXPRESS"
         database = "DbUniversoMangas"
         uid = "sa"
         password = "112358"
@@ -89,16 +93,6 @@ if os.path.isdir(caminho):
 
     # Passo 4: Monta o e-mail e dispara um resumo, com o anexo do backup
 
-    FROM = "laurelios754@gmail.com"
-    PASSWORD = "@utomatico"
-
-    TO = "leovilelati@gmail.com"
-
-    msg = email.mime.multipart.MIMEMultipart()
-    msg['Subject'] = "Resumo de vandas / Backup do sistema"
-    msg['From'] = FROM
-    msg['To'] = TO
-
     linhas = ""
 
     for index, linha in data2.iterrows():
@@ -110,44 +104,78 @@ if os.path.isdir(caminho):
         linhas += f"""<td style="width: auto; border: 1px solid #cecece;"> {linha.VALOR_DESCONTO} </td>"""
         linhas += "</tr>"
 
-    body = email.mime.text.MIMEText(f"""
-                                        <h4>Boa tarde</h4>
-                                        <div>Resumo das vendas do dia:</div>
-                                        <ul>
-                                        <li>Total de itens vendidos: {quantItens} itens</li>
-                                        <li>Valor total vendido: R$ {valorTotal:,.2f} </li>
-                                        </ul>
-                                        <table style="height: 104px; border: 1px solid #cecece;" width="627">
-                                        <tbody>
-                                        <tr>
-                                        <td style="width: auto; border: 1px solid #cecece;"><strong>Data Hora</strong></td>
-                                        <td style="width: auto; border: 1px solid #cecece;"><strong>Descrição</strong></td>
-                                        <td style="width: auto; border: 1px solid #cecece;"><strong>Preço Venda</strong></td>
-                                        <td style="width: auto; border: 1px solid #cecece;"><strong>Quantidade</strong></td>
-                                        <td style="width: auto; border: 1px solid #cecece;"><strong>Valor Desconto</strong></td>
-                                        </tr>
-                                        {linhas}
-                                        </tbody>
-                                        </table>
-                                        <div>&nbsp;</div>
-                                        <div>Obs.: Em anexo segue o backup do sistema.</div>
-                                        <div>&nbsp;</div>
-                                        <div>Att.</div>
-                                        <div>Equipe de vendas</div>
-                                    """, 'html')
-    msg.attach(body)
+    body = f"""
+                <h4>Boa tarde</h4>
+                <div>Resumo das vendas do dia:</div>
+                <ul>
+                <li>Total de itens vendidos: {quantItens} itens</li>
+                <li>Valor total vendido: R$ {valorTotal:,.2f} </li>
+                </ul>
+                <table style="height: 104px; border: 1px solid #cecece;" width="627">
+                <tbody>
+                <tr>
+                <td style="width: auto; border: 1px solid #cecece;"><strong>Data Hora</strong></td>
+                <td style="width: auto; border: 1px solid #cecece;"><strong>Descrição</strong></td>
+                <td style="width: auto; border: 1px solid #cecece;"><strong>Preço Venda</strong></td>
+                <td style="width: auto; border: 1px solid #cecece;"><strong>Quantidade</strong></td>
+                <td style="width: auto; border: 1px solid #cecece;"><strong>Valor Desconto</strong></td>
+                </tr>
+                {linhas}
+                </tbody>
+                </table>
+                <div>&nbsp;</div>
+                <div>Obs.: Em anexo segue o backup do sistema.</div>
+                <div>&nbsp;</div>
+                <div>Att.</div>
+                <div>Equipe de vendas</div>
+            """
+    
 
-    filename = f"{caminho}\{ultimo_arquivo[1]}"
-    fp = open(filename, 'rb')
-    att = email.mime.application.MIMEApplication(fp.read(), _subtype="bat")
-    fp.close()
-    att.add_header('Content-Disposition', 'attachment', filename=filename)
-    msg.attach(att)
 
-    s = smtplib.SMTP('smtp.gmail.com', 587)
-    s.starttls()
-    s.login(FROM, PASSWORD)
-    s.sendmail(FROM, [TO], msg.as_string())
-    s.quit()
+    # Configurações do servidor SMTP
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587  # Porta típica para STARTTLS
+    smtp_username = 'laurelios754@gmail.com'
+    ##smtp_password = '@utomatico'
+    smtp_password = 'cxpy awnv pjrk mhmo'
+    destinatario = 'leovilelati@gmail.com'
 
-    print("Email enviado!")
+    # Construa a mensagem de e-mail
+    assunto = 'Resumo de vandas / Backup do sistema'
+    corpo_mensagem_html = body
+
+    mensagem = MIMEMultipart()
+    mensagem['From'] = smtp_username
+    mensagem['To'] = destinatario
+    mensagem['Subject'] = assunto
+
+    # Adicione corpo do e-mail
+    mensagem.attach(MIMEText(corpo_mensagem_html, 'html'))
+
+    # Adicione anexo ao e-mail
+    caminho_anexo = f"{caminho}\{ultimo_arquivo[1]}"
+
+    anexo = MIMEBase('application', 'octet-stream')
+    anexo.set_payload(open(caminho_anexo, 'rb').read())
+    encoders.encode_base64(anexo)
+    anexo.add_header('Content-Disposition', f'attachment; filename={caminho_anexo}')
+
+    mensagem.attach(anexo)
+
+
+    # Conecte-se ao servidor SMTP e envie o e-mail
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            # Inicie a comunicação com o servidor
+            server.starttls()
+
+            # Faça login no servidor
+            server.login(smtp_username, smtp_password)
+
+            # Envie o e-mail
+            server.sendmail(smtp_username, destinatario, mensagem.as_string())
+
+        print('E-mail com anexo enviado com sucesso!')
+
+    except Exception as e:
+        print(f'Erro ao enviar e-mail com anexo: {e}')
